@@ -32,7 +32,76 @@ interface Video {
   commentsList?: Comment[];
   views?: number;
   trending?: boolean;
+  isLive?: boolean;
+  liveViewers?: number;
 }
+
+interface Achievement {
+  id: number;
+  title: string;
+  description: string;
+  icon: string;
+  progress: number;
+  total: number;
+  unlocked: boolean;
+}
+
+const mockAchievements: Achievement[] = [
+  {
+    id: 1,
+    title: 'Первый шаг',
+    description: 'Посмотри первое видео',
+    icon: 'Play',
+    progress: 1,
+    total: 1,
+    unlocked: true,
+  },
+  {
+    id: 2,
+    title: 'Любитель солнца',
+    description: 'Поставь 10 лайков',
+    icon: 'Heart',
+    progress: 0,
+    total: 10,
+    unlocked: false,
+  },
+  {
+    id: 3,
+    title: 'Коллекционер',
+    description: 'Сохрани 5 видео',
+    icon: 'Bookmark',
+    progress: 0,
+    total: 5,
+    unlocked: false,
+  },
+  {
+    id: 4,
+    title: 'Социальная бабочка',
+    description: 'Поделись 3 видео',
+    icon: 'Share2',
+    progress: 0,
+    total: 3,
+    unlocked: false,
+  },
+  {
+    id: 5,
+    title: 'Марафонец',
+    description: 'Посмотри 50 видео',
+    icon: 'Zap',
+    progress: 0,
+    total: 50,
+    unlocked: false,
+  },
+  {
+    id: 6,
+    title: 'Звезда комментариев',
+    description: 'Напиши 20 комментариев',
+    icon: 'MessageCircle',
+    progress: 0,
+    total: 20,
+    unlocked: false,
+  },
+];
 
 const mockVideos: Video[] = [
   {
@@ -49,6 +118,7 @@ const mockVideos: Video[] = [
     hashtags: ['sunset', 'nature', 'golden', 'vibes'],
     views: 125000,
     trending: false,
+    isLive: false,
   },
   {
     id: 2,
@@ -64,6 +134,8 @@ const mockVideos: Video[] = [
     hashtags: ['beach', 'summer', 'ocean', 'waves'],
     views: 345000,
     trending: true,
+    isLive: true,
+    liveViewers: 1234,
   },
   {
     id: 3,
@@ -79,6 +151,7 @@ const mockVideos: Video[] = [
     hashtags: ['travel', 'adventure', 'sunrise', 'explore'],
     views: 567000,
     trending: true,
+    isLive: false,
   },
   {
     id: 4,
@@ -94,6 +167,8 @@ const mockVideos: Video[] = [
     hashtags: ['food', 'sunset', 'cooking', 'yummy'],
     views: 189000,
     trending: false,
+    isLive: true,
+    liveViewers: 567,
   },
   {
     id: 5,
@@ -109,6 +184,7 @@ const mockVideos: Video[] = [
     hashtags: ['fitness', 'health', 'workout', 'morning'],
     views: 421000,
     trending: true,
+    isLive: false,
   },
 ];
 
@@ -130,6 +206,10 @@ export default function Index() {
   const [showUploadSheet, setShowUploadSheet] = useState(false);
   const [showAboutDialog, setShowAboutDialog] = useState(false);
   const [showTrending, setShowTrending] = useState(false);
+  const [showAchievements, setShowAchievements] = useState(false);
+  const [showLiveStreams, setShowLiveStreams] = useState(false);
+  const [showRecommendations, setShowRecommendations] = useState(false);
+  const [viewHistory, setViewHistory] = useState<number[]>([]);
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -143,6 +223,37 @@ export default function Index() {
   const savedVideos = videos.filter(v => v.isSaved);
   const trendingVideos = videos.filter(v => v.trending).sort((a, b) => (b.views || 0) - (a.views || 0));
   const followingVideos = videos.filter(v => v.isFollowing);
+  const liveVideos = videos.filter(v => v.isLive);
+  
+  const getRecommendations = () => {
+    if (viewHistory.length === 0) return videos.slice(0, 3);
+    
+    const viewedHashtags = viewHistory
+      .map(id => videos.find(v => v.id === id))
+      .filter(v => v)
+      .flatMap(v => v!.hashtags);
+    
+    const hashtagCounts = viewedHashtags.reduce((acc, tag) => {
+      acc[tag] = (acc[tag] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    
+    const topHashtags = Object.entries(hashtagCounts)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 3)
+      .map(([tag]) => tag);
+    
+    return videos
+      .filter(v => !viewHistory.includes(v.id))
+      .sort((a, b) => {
+        const aScore = a.hashtags.filter(tag => topHashtags.includes(tag)).length;
+        const bScore = b.hashtags.filter(tag => topHashtags.includes(tag)).length;
+        return bScore - aScore;
+      })
+      .slice(0, 6);
+  };
+  
+  const recommendedVideos = getRecommendations();
   
   const filteredVideos = videos.filter(v => {
     const matchesSearch = searchQuery === '' || 
@@ -193,6 +304,12 @@ export default function Index() {
     }, 2000);
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    if (!viewHistory.includes(videos[currentVideoIndex].id)) {
+      setViewHistory([...viewHistory, videos[currentVideoIndex].id]);
+    }
+  }, [currentVideoIndex]);
 
   useEffect(() => {
     const currentVideo = videoRefs.current[currentVideoIndex];
@@ -452,6 +569,16 @@ export default function Index() {
 
         <div className="space-y-3">
           <button 
+            onClick={() => setShowAchievements(true)}
+            className="w-full bg-white/90 backdrop-blur-sm rounded-2xl p-4 flex items-center justify-between shadow-lg hover:scale-105 transition-transform">
+            <div className="flex items-center gap-3">
+              <Icon name="Award" size={24} className="text-orange-600" />
+              <span className="font-medium text-gray-800">Достижения</span>
+            </div>
+            <Icon name="ChevronRight" size={20} className="text-gray-400" />
+          </button>
+
+          <button 
             onClick={() => setShowSettings(true)}
             className="w-full bg-white/90 backdrop-blur-sm rounded-2xl p-4 flex items-center justify-between shadow-lg hover:scale-105 transition-transform">
             <div className="flex items-center gap-3">
@@ -498,8 +625,12 @@ export default function Index() {
       <div className="h-screen w-screen bg-gradient-to-br from-[#FEF7CD] via-[#FDE1D3] to-[#FEC6A1] flex items-center justify-center">
         <div className="text-center animate-fade-in">
           <div className="relative mb-8">
-            <div className="w-32 h-32 rounded-full bg-gradient-to-br from-orange-400 to-yellow-400 mx-auto flex items-center justify-center shadow-2xl animate-pulse-soft">
-              <span className="text-white font-bold text-6xl">G</span>
+            <div className="w-32 h-32 rounded-full overflow-hidden mx-auto shadow-2xl animate-pulse-soft">
+              <img 
+                src="https://cdn.poehali.dev/files/33dc9abe-3980-4dff-93a0-e778a23a51b3.jpg" 
+                alt="GoShorts Logo"
+                className="w-full h-full object-cover"
+              />
             </div>
             <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-24 h-24 rounded-full bg-yellow-300/30 blur-xl"></div>
           </div>
@@ -529,8 +660,19 @@ export default function Index() {
                 className="text-white">
                 <Icon name="TrendingUp" size={20} />
               </button>
+              <button 
+                onClick={() => setShowLiveStreams(!showLiveStreams)}
+                className="text-white relative">
+                <Icon name="Radio" size={20} />
+                <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+              </button>
             </div>
             <div className="flex items-center gap-3">
+              <button 
+                onClick={() => setShowRecommendations(!showRecommendations)}
+                className="text-white">
+                <Icon name="Sparkles" size={20} />
+              </button>
               <button onClick={() => setShowUploadSheet(true)} className="text-white">
                 <Icon name="Plus" size={24} />
               </button>
@@ -556,6 +698,17 @@ export default function Index() {
               muted
               src={currentVideo.videoUrl}
             />
+
+            {currentVideo.isLive && (
+              <div className="absolute top-8 left-8 bg-red-500 text-white text-sm font-bold px-4 py-2 rounded-full flex items-center gap-2 animate-pulse shadow-lg">
+                <span className="w-2 h-2 bg-white rounded-full"></span>
+                LIVE
+                <span className="ml-2 flex items-center gap-1">
+                  <Icon name="Eye" size={14} />
+                  {formatNumber(currentVideo.liveViewers || 0)}
+                </span>
+              </div>
+            )}
 
             <div className="absolute bottom-24 left-0 right-0 px-8 text-white animate-slide-up">
               <div className="flex items-center justify-between mb-3">
@@ -1084,6 +1237,139 @@ export default function Index() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={showAchievements} onOpenChange={setShowAchievements}>
+        <DialogContent className="max-w-md bg-gradient-to-br from-[#FEF7CD] to-[#FDE1D3] border-orange-200 max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-gray-800">🏆 Достижения</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-3">
+            {mockAchievements.map(achievement => (
+              <div 
+                key={achievement.id}
+                className={`bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-sm transition-all ${
+                  achievement.unlocked ? 'border-2 border-yellow-400' : 'opacity-60'
+                }`}
+              >
+                <div className="flex items-start gap-4">
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                    achievement.unlocked 
+                      ? 'bg-gradient-to-br from-yellow-400 to-orange-400' 
+                      : 'bg-gray-300'
+                  }`}>
+                    <Icon name={achievement.icon as any} size={24} className="text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-gray-800 mb-1">{achievement.title}</h4>
+                    <p className="text-sm text-gray-600 mb-2">{achievement.description}</p>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-gradient-to-r from-orange-400 to-yellow-400 h-2 rounded-full transition-all"
+                        style={{ width: `${(achievement.progress / achievement.total) * 100}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {achievement.progress}/{achievement.total}
+                    </p>
+                  </div>
+                  {achievement.unlocked && (
+                    <Icon name="CheckCircle" size={20} className="text-green-500" />
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {showLiveStreams && (
+        <div className="absolute top-20 left-0 right-0 bottom-0 bg-gradient-to-br from-[#FEF7CD] to-[#FDE1D3] z-30 overflow-y-auto animate-fade-in">
+          <div className="max-w-md mx-auto p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-gray-800">🔴 Прямые эфиры</h2>
+              <button onClick={() => setShowLiveStreams(false)}>
+                <Icon name="X" size={24} className="text-gray-600" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              {liveVideos.map(video => (
+                <div
+                  key={video.id}
+                  onClick={() => {
+                    setCurrentVideoIndex(videos.findIndex(v => v.id === video.id));
+                    setShowLiveStreams(false);
+                    setActiveTab('home');
+                  }}
+                  className="relative aspect-video rounded-2xl overflow-hidden bg-gradient-to-br from-orange-300 to-yellow-200 cursor-pointer hover:scale-105 transition-transform shadow-lg"
+                >
+                  <div className="absolute top-3 left-3 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1 animate-pulse">
+                    <span className="w-2 h-2 bg-white rounded-full"></span>
+                    LIVE
+                  </div>
+                  <div className="absolute top-3 right-3 bg-black/60 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
+                    <Icon name="Eye" size={12} />
+                    {formatNumber(video.liveViewers || 0)}
+                  </div>
+                  <div className="absolute inset-0 bg-black/40 flex items-end p-4">
+                    <div className="text-white w-full">
+                      <p className="font-semibold mb-1">{video.author}</p>
+                      <p className="text-sm opacity-90 line-clamp-2">{video.description}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showRecommendations && (
+        <div className="absolute top-20 left-0 right-0 bottom-0 bg-gradient-to-br from-[#FEF7CD] to-[#FDE1D3] z-30 overflow-y-auto animate-fade-in">
+          <div className="max-w-md mx-auto p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-gray-800">✨ Рекомендации для вас</h2>
+              <button onClick={() => setShowRecommendations(false)}>
+                <Icon name="X" size={24} className="text-gray-600" />
+              </button>
+            </div>
+            <p className="text-sm text-gray-600 mb-6">
+              На основе ваших просмотров ({viewHistory.length} видео)
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              {recommendedVideos.map(video => (
+                <div
+                  key={video.id}
+                  onClick={() => {
+                    setCurrentVideoIndex(videos.findIndex(v => v.id === video.id));
+                    setShowRecommendations(false);
+                    setActiveTab('home');
+                  }}
+                  className="relative aspect-[9/16] rounded-2xl overflow-hidden bg-gradient-to-br from-orange-300 to-yellow-200 cursor-pointer hover:scale-105 transition-transform shadow-lg"
+                >
+                  <div className="absolute inset-0 bg-black/30 flex items-end p-3">
+                    <div className="text-white w-full">
+                      <p className="text-xs font-semibold mb-1">{video.author}</p>
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1">
+                            <Icon name="Heart" size={12} />
+                            <span>{formatNumber(video.likes)}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Icon name="Eye" size={12} />
+                            <span>{formatNumber(video.views || 0)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
