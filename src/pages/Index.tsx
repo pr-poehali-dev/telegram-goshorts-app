@@ -106,32 +106,32 @@ const mockAchievements: Achievement[] = [
 const mockVideos: Video[] = [
   {
     id: 1,
-    videoUrl: 'https://sample-videos.com/video321/mp4/720/big_buck_bunny_720p_1mb.mp4',
-    author: '@sunny_vibes',
-    description: 'Enjoying the golden hour 🌅 #sunset #nature',
+    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+    author: '@funny_animals',
+    description: 'Когда увидел новый функционал GoShorts 🐰😄 #funny #animals',
     likes: 15200,
     comments: 342,
     shares: 128,
     isLiked: false,
     isSaved: false,
     isFollowing: false,
-    hashtags: ['sunset', 'nature', 'golden', 'vibes'],
+    hashtags: ['funny', 'animals', 'cute', 'comedy'],
     views: 125000,
     trending: false,
     isLive: false,
   },
   {
     id: 2,
-    videoUrl: 'https://sample-videos.com/video321/mp4/720/big_buck_bunny_720p_1mb.mp4',
-    author: '@beach_life',
-    description: 'Summer vibes only ☀️🏖️ #beach #summer',
+    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+    author: '@dream_studio',
+    description: 'Мечты сбываются в GoShorts! ✨🎬 #dreams #creative',
     likes: 23400,
     comments: 567,
     shares: 234,
     isLiked: false,
     isSaved: false,
     isFollowing: false,
-    hashtags: ['beach', 'summer', 'ocean', 'waves'],
+    hashtags: ['dreams', 'creative', 'art', 'animation'],
     views: 345000,
     trending: true,
     isLive: true,
@@ -139,32 +139,32 @@ const mockVideos: Video[] = [
   },
   {
     id: 3,
-    videoUrl: 'https://sample-videos.com/video321/mp4/720/big_buck_bunny_720p_1mb.mp4',
-    author: '@travel_tales',
-    description: 'Best sunrise ever! 🌄 #travel #adventure',
+    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+    author: '@fire_vibes',
+    description: 'Жаркий контент каждый день! 🔥☀️ #hot #vibes',
     likes: 45600,
     comments: 892,
     shares: 445,
     isLiked: false,
     isSaved: false,
     isFollowing: false,
-    hashtags: ['travel', 'adventure', 'sunrise', 'explore'],
+    hashtags: ['hot', 'vibes', 'summer', 'energy'],
     views: 567000,
     trending: true,
     isLive: false,
   },
   {
     id: 4,
-    videoUrl: 'https://sample-videos.com/video321/mp4/720/big_buck_bunny_720p_1mb.mp4',
-    author: '@foodie_life',
-    description: 'Лучшие закаты и вкусная еда 🍕 #food #sunset',
+    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
+    author: '@travel_escape',
+    description: 'Открывай новые горизонты с GoShorts! 🌍✈️ #travel #escape',
     likes: 18900,
     comments: 421,
     shares: 156,
     isLiked: false,
     isSaved: false,
     isFollowing: false,
-    hashtags: ['food', 'sunset', 'cooking', 'yummy'],
+    hashtags: ['travel', 'escape', 'adventure', 'explore'],
     views: 189000,
     trending: false,
     isLive: true,
@@ -172,16 +172,16 @@ const mockVideos: Video[] = [
   },
   {
     id: 5,
-    videoUrl: 'https://sample-videos.com/video321/mp4/720/big_buck_bunny_720p_1mb.mp4',
-    author: '@fitness_guru',
-    description: 'Morning workout routine 💪 #fitness #health',
+    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4',
+    author: '@fun_zone',
+    description: 'Больше веселья, больше эмоций! 🎉😂 #fun #entertainment',
     likes: 32100,
     comments: 678,
     shares: 289,
     isLiked: false,
     isSaved: false,
     isFollowing: false,
-    hashtags: ['fitness', 'health', 'workout', 'morning'],
+    hashtags: ['fun', 'entertainment', 'joy', 'comedy'],
     views: 421000,
     trending: true,
     isLive: false,
@@ -210,8 +210,12 @@ export default function Index() {
   const [showLiveStreams, setShowLiveStreams] = useState(false);
   const [showRecommendations, setShowRecommendations] = useState(false);
   const [viewHistory, setViewHistory] = useState<number[]>([]);
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [profileName, setProfileName] = useState('@my_profile');
+  const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   const mockComments: Comment[] = [
     { id: 1, author: '@user123', text: 'Невероятно красиво! 😍', timestamp: '2 часа назад', likes: 24 },
@@ -537,15 +541,40 @@ export default function Index() {
     </div>
   );
 
+  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfileAvatar(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const renderProfileTab = () => (
     <div className="h-full overflow-y-auto pb-20 pt-20 px-6 animate-fade-in">
       <div className="max-w-md mx-auto">
         <div className="text-center mb-8">
-          <div className="w-24 h-24 rounded-full bg-gradient-to-br from-orange-400 to-yellow-400 mx-auto mb-4 flex items-center justify-center shadow-xl">
-            <span className="text-white font-bold text-4xl">Я</span>
+          <div 
+            onClick={() => setShowEditProfile(true)}
+            className="relative w-24 h-24 rounded-full bg-gradient-to-br from-orange-400 to-yellow-400 mx-auto mb-4 flex items-center justify-center shadow-xl cursor-pointer hover:scale-105 transition-transform group">
+            {profileAvatar ? (
+              <img src={profileAvatar} alt="Profile" className="w-full h-full rounded-full object-cover" />
+            ) : (
+              <span className="text-white font-bold text-4xl">Я</span>
+            )}
+            <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              <Icon name="Edit" size={24} className="text-white" />
+            </div>
           </div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-1">@my_profile</h2>
+          <h2 className="text-2xl font-bold text-gray-800 mb-1">{profileName}</h2>
           <p className="text-gray-500 text-sm">Мой профиль GoShorts</p>
+          <button 
+            onClick={() => setShowEditProfile(true)}
+            className="mt-2 text-orange-600 text-sm font-medium hover:underline">
+            Редактировать профиль
+          </button>
         </div>
 
         <div className="bg-white/90 backdrop-blur-sm rounded-3xl p-6 shadow-lg mb-6">
@@ -1370,6 +1399,60 @@ export default function Index() {
           </div>
         </div>
       )}
+
+      <Dialog open={showEditProfile} onOpenChange={setShowEditProfile}>
+        <DialogContent className="max-w-md bg-gradient-to-br from-[#FEF7CD] to-[#FDE1D3] border-orange-200">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-gray-800">Редактировать профиль</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-6">
+            <div className="flex flex-col items-center gap-4">
+              <div 
+                onClick={() => avatarInputRef.current?.click()}
+                className="relative w-32 h-32 rounded-full bg-gradient-to-br from-orange-400 to-yellow-400 flex items-center justify-center shadow-xl cursor-pointer hover:scale-105 transition-transform group">
+                {profileAvatar ? (
+                  <img src={profileAvatar} alt="Profile" className="w-full h-full rounded-full object-cover" />
+                ) : (
+                  <span className="text-white font-bold text-5xl">Я</span>
+                )}
+                <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <Icon name="Camera" size={32} className="text-white" />
+                </div>
+              </div>
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarUpload}
+                className="hidden"
+              />
+              <p className="text-sm text-gray-600">Нажмите, чтобы изменить фото</p>
+            </div>
+
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-sm">
+              <div className="flex items-center gap-3 mb-2">
+                <Icon name="User" size={20} className="text-orange-600" />
+                <p className="font-semibold text-gray-800">Никнейм</p>
+              </div>
+              <Input
+                type="text"
+                value={profileName}
+                onChange={(e) => setProfileName(e.target.value)}
+                placeholder="Введите никнейм"
+                className="bg-white/90 border-orange-200 focus:border-orange-400"
+              />
+            </div>
+
+            <Button
+              onClick={() => setShowEditProfile(false)}
+              className="w-full bg-gradient-to-r from-orange-400 to-yellow-400 text-white hover:from-orange-500 hover:to-yellow-500"
+            >
+              Сохранить изменения
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
