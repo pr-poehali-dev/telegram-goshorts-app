@@ -213,6 +213,11 @@ export default function Index() {
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [profileName, setProfileName] = useState('@my_profile');
   const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
+  const [twinMessage, setTwinMessage] = useState('');
+  const [twinChat, setTwinChat] = useState<{role: 'user' | 'twin', text: string, timestamp: string}[]>([]);
+  const [twinMode, setTwinMode] = useState('manual');
+  const [twinStyle, setTwinStyle] = useState('friendly');
+  const [showTwinSettings, setShowTwinSettings] = useState(false);
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
@@ -603,6 +608,164 @@ export default function Index() {
     }
   };
 
+  const renderTwinTab = () => (
+    <div className="h-full overflow-y-auto pb-20 pt-20 px-6 animate-fade-in bg-gradient-to-br from-[#FEF7CD] to-[#FDE1D3]">
+      <div className="max-w-md mx-auto">
+        <div className="text-center mb-6">
+          <div className="w-32 h-32 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 mx-auto mb-4 flex items-center justify-center shadow-xl animate-pulse-soft">
+            <Icon name="Bot" size={64} className="text-white" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-800 mb-1">Цифровой двойник</h2>
+          <p className="text-gray-600 text-sm">Ваш личный ИИ-ассистент</p>
+        </div>
+
+        <div className="space-y-3 mb-6">
+          <button 
+            onClick={() => setShowTwinSettings(true)}
+            className="w-full bg-white/90 backdrop-blur-sm rounded-2xl p-4 flex items-center justify-between shadow-lg hover:scale-105 transition-transform">
+            <div className="flex items-center gap-3">
+              <Icon name="Settings" size={24} className="text-purple-600" />
+              <div className="text-left">
+                <p className="font-medium text-gray-800">Настройки двойника</p>
+                <p className="text-xs text-gray-500">Режим: {twinMode === 'manual' ? 'По запросу' : twinMode === 'semi' ? 'Полуавтомат' : 'Полный'}</p>
+              </div>
+            </div>
+            <Icon name="ChevronRight" size={20} className="text-gray-400" />
+          </button>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-4 shadow-lg text-center">
+              <Icon name="MessageCircle" size={28} className="text-purple-600 mx-auto mb-2" />
+              <p className="text-2xl font-bold text-gray-800">{twinChat.length}</p>
+              <p className="text-xs text-gray-500">Диалогов</p>
+            </div>
+            <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-4 shadow-lg text-center">
+              <Icon name="Zap" size={28} className="text-yellow-500 mx-auto mb-2" />
+              <p className="text-2xl font-bold text-gray-800">95%</p>
+              <p className="text-xs text-gray-500">Точность</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl overflow-hidden mb-4">
+          <div className="bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-3 flex items-center justify-between">
+            <h3 className="text-white font-semibold">Чат с двойником</h3>
+            <button onClick={() => setTwinChat([])} className="text-white/80 hover:text-white">
+              <Icon name="Trash2" size={18} />
+            </button>
+          </div>
+          
+          <div className="h-64 overflow-y-auto p-4 space-y-3">
+            {twinChat.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-gray-400">
+                <Icon name="MessagesSquare" size={48} className="mb-2 opacity-50" />
+                <p className="text-sm">Начните диалог с вашим двойником</p>
+              </div>
+            ) : (
+              twinChat.map((msg, idx) => (
+                <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[80%] rounded-2xl px-4 py-2 ${
+                    msg.role === 'user' 
+                      ? 'bg-gradient-to-r from-orange-400 to-yellow-400 text-white'
+                      : 'bg-gray-100 text-gray-800'
+                  }`}>
+                    <p className="text-sm">{msg.text}</p>
+                    <p className="text-xs opacity-70 mt-1">{msg.timestamp}</p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="p-4 border-t border-gray-200">
+            <div className="flex gap-2">
+              <Input
+                value={twinMessage}
+                onChange={(e) => setTwinMessage(e.target.value)}
+                placeholder="Напишите сообщение..."
+                className="bg-white/90 border-purple-200 focus:border-purple-400"
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && twinMessage.trim()) {
+                    const userMsg = {
+                      role: 'user' as const,
+                      text: twinMessage,
+                      timestamp: new Date().toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'})
+                    };
+                    const twinResponses = [
+                      'Отличная идея! Я помогу тебе с этим.',
+                      'Понял тебя. Давай подумаем вместе.',
+                      'Интересный вопрос! Вот мое мнение...',
+                      'Я проанализировал информацию. Вот что думаю.',
+                      'Хороший момент для обсуждения!'
+                    ];
+                    const twinMsg = {
+                      role: 'twin' as const,
+                      text: twinResponses[Math.floor(Math.random() * twinResponses.length)],
+                      timestamp: new Date().toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'})
+                    };
+                    setTwinChat([...twinChat, userMsg, twinMsg]);
+                    setTwinMessage('');
+                  }
+                }}
+              />
+              <Button
+                onClick={() => {
+                  if (twinMessage.trim()) {
+                    const userMsg = {
+                      role: 'user' as const,
+                      text: twinMessage,
+                      timestamp: new Date().toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'})
+                    };
+                    const twinResponses = [
+                      'Отличная идея! Я помогу тебе с этим.',
+                      'Понял тебя. Давай подумаем вместе.',
+                      'Интересный вопрос! Вот мое мнение...',
+                      'Я проанализировал информацию. Вот что думаю.',
+                      'Хороший момент для обсуждения!'
+                    ];
+                    const twinMsg = {
+                      role: 'twin' as const,
+                      text: twinResponses[Math.floor(Math.random() * twinResponses.length)],
+                      timestamp: new Date().toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'})
+                    };
+                    setTwinChat([...twinChat, userMsg, twinMsg]);
+                    setTwinMessage('');
+                  }
+                }}
+                className="bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600"
+              >
+                <Icon name="Send" size={20} />
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-4 shadow-lg">
+            <div className="flex items-center gap-3 mb-3">
+              <Icon name="Sparkles" size={20} className="text-purple-600" />
+              <h4 className="font-semibold text-gray-800">Быстрые команды</h4>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button className="bg-purple-50 hover:bg-purple-100 text-purple-700 text-sm py-2 rounded-lg transition-colors">
+                📅 Напомнить
+              </button>
+              <button className="bg-purple-50 hover:bg-purple-100 text-purple-700 text-sm py-2 rounded-lg transition-colors">
+                📝 Записать
+              </button>
+              <button className="bg-purple-50 hover:bg-purple-100 text-purple-700 text-sm py-2 rounded-lg transition-colors">
+                🌐 Перевести
+              </button>
+              <button className="bg-purple-50 hover:bg-purple-100 text-purple-700 text-sm py-2 rounded-lg transition-colors">
+                💡 Идея
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   const renderProfileTab = () => (
     <div className="h-full overflow-y-auto pb-20 pt-20 px-6 animate-fade-in">
       <div className="max-w-md mx-auto">
@@ -936,6 +1099,7 @@ export default function Index() {
       )}
 
       {activeTab === 'search' && renderSearchTab()}
+      {activeTab === 'twin' && renderTwinTab()}
       {activeTab === 'favorites' && renderFavoritesTab()}
       {activeTab === 'profile' && renderProfileTab()}
 
@@ -978,6 +1142,33 @@ export default function Index() {
               }`}
             >
               Поиск
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('twin')}
+            className={`flex flex-col items-center gap-1 transition-all ${
+              activeTab === 'twin' ? 'scale-110' : ''
+            }`}
+          >
+            <div className={`relative ${
+              activeTab === 'twin' ? 'animate-pulse-soft' : ''
+            }`}>
+              <Icon
+                name="Bot"
+                size={26}
+                className={activeTab === 'twin' ? 'text-purple-600' : 'text-gray-500'}
+              />
+              {twinMode !== 'manual' && (
+                <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full"></span>
+              )}
+            </div>
+            <span
+              className={`text-xs font-medium ${
+                activeTab === 'twin' ? 'text-purple-600' : 'text-gray-500'
+              }`}
+            >
+              Двойник
             </span>
           </button>
 
@@ -1503,6 +1694,87 @@ export default function Index() {
               className="w-full bg-gradient-to-r from-orange-400 to-yellow-400 text-white hover:from-orange-500 hover:to-yellow-500"
             >
               Сохранить изменения
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showTwinSettings} onOpenChange={setShowTwinSettings}>
+        <DialogContent className="max-w-md bg-gradient-to-br from-[#FEF7CD] to-[#FDE1D3] border-orange-200">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-gray-800">Настройки двойника</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-6">
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-sm">
+              <div className="flex items-center gap-3 mb-3">
+                <Icon name="Zap" size={20} className="text-purple-600" />
+                <p className="font-semibold text-gray-800">Режим работы</p>
+              </div>
+              <select
+                value={twinMode}
+                onChange={(e) => setTwinMode(e.target.value)}
+                className="w-full bg-white/90 border border-purple-200 rounded-lg px-3 py-2 text-sm font-medium text-gray-800"
+              >
+                <option value="manual">Только по запросу</option>
+                <option value="semi">Полуавтоматический</option>
+                <option value="full">Полный режим</option>
+              </select>
+              <p className="text-xs text-gray-500 mt-2">
+                {twinMode === 'manual' && 'Двойник отвечает только по вашему запросу'}
+                {twinMode === 'semi' && 'Предлагает варианты ответов для подтверждения'}
+                {twinMode === 'full' && 'Автоматически отвечает на сообщения'}
+              </p>
+            </div>
+
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-sm">
+              <div className="flex items-center gap-3 mb-3">
+                <Icon name="Smile" size={20} className="text-purple-600" />
+                <p className="font-semibold text-gray-800">Стиль общения</p>
+              </div>
+              <select
+                value={twinStyle}
+                onChange={(e) => setTwinStyle(e.target.value)}
+                className="w-full bg-white/90 border border-purple-200 rounded-lg px-3 py-2 text-sm font-medium text-gray-800"
+              >
+                <option value="friendly">Дружелюбный</option>
+                <option value="business">Деловой</option>
+                <option value="ironic">Ироничный</option>
+                <option value="casual">Непринуждённый</option>
+              </select>
+            </div>
+
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <Icon name="Shield" size={20} className="text-purple-600" />
+                  <div>
+                    <p className="font-semibold text-gray-800">Режим инкогнито</p>
+                    <p className="text-xs text-gray-500">Не сохранять историю</p>
+                  </div>
+                </div>
+                <Switch />
+              </div>
+            </div>
+
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <Icon name="Bell" size={20} className="text-purple-600" />
+                  <div>
+                    <p className="font-semibold text-gray-800">Уведомления</p>
+                    <p className="text-xs text-gray-500">О новых сообщениях</p>
+                  </div>
+                </div>
+                <Switch defaultChecked />
+              </div>
+            </div>
+
+            <Button
+              onClick={() => setShowTwinSettings(false)}
+              className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600"
+            >
+              Сохранить настройки
             </Button>
           </div>
         </DialogContent>
