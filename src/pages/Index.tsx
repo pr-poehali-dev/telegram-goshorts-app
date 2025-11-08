@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 
 interface Comment {
   id: number;
@@ -19,14 +20,18 @@ interface Video {
   id: number;
   videoUrl: string;
   author: string;
+  authorAvatar?: string;
   description: string;
   likes: number;
   comments: number;
   shares: number;
   isLiked: boolean;
   isSaved: boolean;
+  isFollowing?: boolean;
   hashtags: string[];
   commentsList?: Comment[];
+  views?: number;
+  trending?: boolean;
 }
 
 const mockVideos: Video[] = [
@@ -40,7 +45,10 @@ const mockVideos: Video[] = [
     shares: 128,
     isLiked: false,
     isSaved: false,
+    isFollowing: false,
     hashtags: ['sunset', 'nature', 'golden', 'vibes'],
+    views: 125000,
+    trending: false,
   },
   {
     id: 2,
@@ -52,7 +60,10 @@ const mockVideos: Video[] = [
     shares: 234,
     isLiked: false,
     isSaved: false,
+    isFollowing: false,
     hashtags: ['beach', 'summer', 'ocean', 'waves'],
+    views: 345000,
+    trending: true,
   },
   {
     id: 3,
@@ -64,7 +75,10 @@ const mockVideos: Video[] = [
     shares: 445,
     isLiked: false,
     isSaved: false,
+    isFollowing: false,
     hashtags: ['travel', 'adventure', 'sunrise', 'explore'],
+    views: 567000,
+    trending: true,
   },
   {
     id: 4,
@@ -76,7 +90,10 @@ const mockVideos: Video[] = [
     shares: 156,
     isLiked: false,
     isSaved: false,
+    isFollowing: false,
     hashtags: ['food', 'sunset', 'cooking', 'yummy'],
+    views: 189000,
+    trending: false,
   },
   {
     id: 5,
@@ -88,7 +105,10 @@ const mockVideos: Video[] = [
     shares: 289,
     isLiked: false,
     isSaved: false,
+    isFollowing: false,
     hashtags: ['fitness', 'health', 'workout', 'morning'],
+    views: 421000,
+    trending: true,
   },
 ];
 
@@ -105,7 +125,12 @@ export default function Index() {
   const [showSettings, setShowSettings] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [language, setLanguage] = useState('ru');
+  const [showShareSheet, setShowShareSheet] = useState(false);
+  const [showUploadSheet, setShowUploadSheet] = useState(false);
+  const [showAboutDialog, setShowAboutDialog] = useState(false);
+  const [showTrending, setShowTrending] = useState(false);
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const mockComments: Comment[] = [
     { id: 1, author: '@user123', text: 'Невероятно красиво! 😍', timestamp: '2 часа назад', likes: 24 },
@@ -115,6 +140,8 @@ export default function Index() {
 
   const allHashtags = Array.from(new Set(mockVideos.flatMap(v => v.hashtags)));
   const savedVideos = videos.filter(v => v.isSaved);
+  const trendingVideos = videos.filter(v => v.trending).sort((a, b) => (b.views || 0) - (a.views || 0));
+  const followingVideos = videos.filter(v => v.isFollowing);
   
   const filteredVideos = videos.filter(v => {
     const matchesSearch = searchQuery === '' || 
@@ -123,6 +150,41 @@ export default function Index() {
     const matchesHashtag = !selectedHashtag || v.hashtags.includes(selectedHashtag);
     return matchesSearch && matchesHashtag;
   });
+
+  const handleFollow = () => {
+    const updatedVideos = [...videos];
+    updatedVideos[currentVideoIndex].isFollowing = !updatedVideos[currentVideoIndex].isFollowing;
+    setVideos(updatedVideos);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      console.log('Uploading video:', file.name);
+      setShowUploadSheet(false);
+    }
+  };
+
+  const shareToSocial = (platform: string) => {
+    const currentVideo = videos[currentVideoIndex];
+    const shareUrl = window.location.href;
+    const text = `Смотри это видео от ${currentVideo.author}: ${currentVideo.description}`;
+    
+    const urls: Record<string, string> = {
+      telegram: `https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(text)}`,
+      whatsapp: `https://wa.me/?text=${encodeURIComponent(text + ' ' + shareUrl)}`,
+      vk: `https://vk.com/share.php?url=${encodeURIComponent(shareUrl)}&title=${encodeURIComponent(text)}`,
+      twitter: `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(text)}`,
+      facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`,
+      wechat: shareUrl,
+      line: `https://line.me/R/msg/text/?${encodeURIComponent(text + ' ' + shareUrl)}`,
+    };
+    
+    if (urls[platform]) {
+      window.open(urls[platform], '_blank');
+    }
+    setShowShareSheet(false);
+  };
 
   useEffect(() => {
     const currentVideo = videoRefs.current[currentVideoIndex];
@@ -399,12 +461,24 @@ export default function Index() {
             <Icon name="ChevronRight" size={20} className="text-gray-400" />
           </button>
 
-          <button className="w-full bg-white/90 backdrop-blur-sm rounded-2xl p-4 flex items-center justify-between shadow-lg hover:scale-105 transition-transform">
+          <button 
+            onClick={() => setShowAboutDialog(true)}
+            className="w-full bg-white/90 backdrop-blur-sm rounded-2xl p-4 flex items-center justify-between shadow-lg hover:scale-105 transition-transform">
             <div className="flex items-center gap-3">
               <Icon name="Info" size={24} className="text-orange-600" />
               <span className="font-medium text-gray-800">О приложении</span>
             </div>
             <Icon name="ChevronRight" size={20} className="text-gray-400" />
+          </button>
+
+          <button 
+            onClick={() => {
+              const appUrl = window.location.href;
+              navigator.clipboard.writeText(appUrl);
+            }}
+            className="w-full bg-gradient-to-r from-orange-400 to-yellow-400 rounded-2xl p-4 flex items-center justify-center gap-2 shadow-lg hover:scale-105 transition-transform">
+            <Icon name="Share2" size={20} className="text-white" />
+            <span className="font-semibold text-white">Поделиться приложением</span>
           </button>
         </div>
       </div>
@@ -416,10 +490,22 @@ export default function Index() {
       {activeTab === 'home' && (
         <>
           <header className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-6 py-4 bg-gradient-to-b from-black/20 to-transparent">
-            <h1 className="text-2xl font-bold text-white drop-shadow-lg">GoShorts</h1>
-            <button onClick={() => setActiveTab('search')} className="text-white">
-              <Icon name="Search" size={24} />
-            </button>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold text-white drop-shadow-lg">GoShorts</h1>
+              <button 
+                onClick={() => setShowTrending(!showTrending)}
+                className="text-white">
+                <Icon name="TrendingUp" size={20} />
+              </button>
+            </div>
+            <div className="flex items-center gap-3">
+              <button onClick={() => setShowUploadSheet(true)} className="text-white">
+                <Icon name="Plus" size={24} />
+              </button>
+              <button onClick={() => setActiveTab('search')} className="text-white">
+                <Icon name="Search" size={24} />
+              </button>
+            </div>
           </header>
 
       <div
@@ -440,13 +526,26 @@ export default function Index() {
             />
 
             <div className="absolute bottom-24 left-0 right-0 px-8 text-white animate-slide-up">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-yellow-400 flex items-center justify-center shadow-lg">
-                  <span className="text-white font-bold text-lg">
-                    {currentVideo.author[1].toUpperCase()}
-                  </span>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-yellow-400 flex items-center justify-center shadow-lg">
+                    <span className="text-white font-bold text-lg">
+                      {currentVideo.author[1].toUpperCase()}
+                    </span>
+                  </div>
+                  <p className="font-semibold text-lg drop-shadow-md">{currentVideo.author}</p>
                 </div>
-                <p className="font-semibold text-lg drop-shadow-md">{currentVideo.author}</p>
+                <Button
+                  onClick={handleFollow}
+                  size="sm"
+                  className={`${
+                    currentVideo.isFollowing
+                      ? 'bg-white/20 text-white border border-white'
+                      : 'bg-gradient-to-r from-orange-400 to-yellow-400 text-white'
+                  } font-semibold`}
+                >
+                  {currentVideo.isFollowing ? 'Подписан' : 'Подписаться'}
+                </Button>
               </div>
               <p className="text-sm leading-relaxed drop-shadow-md">{currentVideo.description}</p>
             </div>
@@ -504,7 +603,9 @@ export default function Index() {
                 </div>
               </button>
 
-              <button className="flex flex-col items-center gap-1 transition-transform active:scale-90">
+              <button 
+                onClick={() => setShowShareSheet(true)}
+                className="flex flex-col items-center gap-1 transition-transform active:scale-90">
                 <div className="w-14 h-14 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-lg">
                   <Icon name="Share2" size={28} className="text-orange-600" />
                 </div>
@@ -519,6 +620,52 @@ export default function Index() {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
           <p className="text-white/30 text-sm">Свайп вверх/вниз</p>
         </div>
+
+        {showTrending && (
+          <div className="absolute top-20 left-0 right-0 bottom-0 bg-gradient-to-br from-[#FEF7CD] to-[#FDE1D3] z-30 overflow-y-auto animate-fade-in">
+            <div className="max-w-md mx-auto p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-800">🔥 Тренды</h2>
+                <button onClick={() => setShowTrending(false)}>
+                  <Icon name="X" size={24} className="text-gray-600" />
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                {trendingVideos.map(video => (
+                  <div
+                    key={video.id}
+                    onClick={() => {
+                      setCurrentVideoIndex(videos.findIndex(v => v.id === video.id));
+                      setShowTrending(false);
+                    }}
+                    className="relative aspect-[9/16] rounded-2xl overflow-hidden bg-gradient-to-br from-orange-300 to-yellow-200 cursor-pointer hover:scale-105 transition-transform shadow-lg"
+                  >
+                    <div className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                      TRENDING
+                    </div>
+                    <div className="absolute inset-0 bg-black/30 flex items-end p-3">
+                      <div className="text-white w-full">
+                        <p className="text-xs font-semibold mb-1">{video.author}</p>
+                        <div className="flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1">
+                              <Icon name="Heart" size={12} />
+                              <span>{formatNumber(video.likes)}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Icon name="Eye" size={12} />
+                              <span>{formatNumber(video.views || 0)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
         </>
       )}
@@ -704,6 +851,7 @@ export default function Index() {
                 >
                   <option value="ru">Русский</option>
                   <option value="en">English</option>
+                  <option value="zh">中文</option>
                 </select>
               </div>
             </div>
@@ -743,6 +891,162 @@ export default function Index() {
             >
               Сохранить настройки
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Sheet open={showShareSheet} onOpenChange={setShowShareSheet}>
+        <SheetContent side="bottom" className="bg-gradient-to-br from-[#FEF7CD] to-[#FDE1D3] border-orange-200">
+          <SheetHeader>
+            <SheetTitle className="text-2xl font-bold text-gray-800">Поделиться видео</SheetTitle>
+          </SheetHeader>
+          
+          <div className="grid grid-cols-4 gap-4 mt-6">
+            <button onClick={() => shareToSocial('telegram')} className="flex flex-col items-center gap-2">
+              <div className="w-16 h-16 rounded-full bg-[#0088cc] flex items-center justify-center shadow-lg hover:scale-110 transition-transform">
+                <Icon name="Send" size={28} className="text-white" />
+              </div>
+              <span className="text-xs font-medium text-gray-700">Telegram</span>
+            </button>
+
+            <button onClick={() => shareToSocial('whatsapp')} className="flex flex-col items-center gap-2">
+              <div className="w-16 h-16 rounded-full bg-[#25D366] flex items-center justify-center shadow-lg hover:scale-110 transition-transform">
+                <Icon name="MessageCircle" size={28} className="text-white" />
+              </div>
+              <span className="text-xs font-medium text-gray-700">WhatsApp</span>
+            </button>
+
+            <button onClick={() => shareToSocial('vk')} className="flex flex-col items-center gap-2">
+              <div className="w-16 h-16 rounded-full bg-[#0077FF] flex items-center justify-center shadow-lg hover:scale-110 transition-transform">
+                <span className="text-white font-bold text-xl">VK</span>
+              </div>
+              <span className="text-xs font-medium text-gray-700">VK</span>
+            </button>
+
+            <button onClick={() => shareToSocial('twitter')} className="flex flex-col items-center gap-2">
+              <div className="w-16 h-16 rounded-full bg-[#1DA1F2] flex items-center justify-center shadow-lg hover:scale-110 transition-transform">
+                <Icon name="Twitter" size={28} className="text-white" />
+              </div>
+              <span className="text-xs font-medium text-gray-700">Twitter</span>
+            </button>
+
+            <button onClick={() => shareToSocial('facebook')} className="flex flex-col items-center gap-2">
+              <div className="w-16 h-16 rounded-full bg-[#1877F2] flex items-center justify-center shadow-lg hover:scale-110 transition-transform">
+                <Icon name="Facebook" size={28} className="text-white" />
+              </div>
+              <span className="text-xs font-medium text-gray-700">Facebook</span>
+            </button>
+
+            <button onClick={() => shareToSocial('wechat')} className="flex flex-col items-center gap-2">
+              <div className="w-16 h-16 rounded-full bg-[#09B83E] flex items-center justify-center shadow-lg hover:scale-110 transition-transform">
+                <span className="text-white font-bold text-xl">微</span>
+              </div>
+              <span className="text-xs font-medium text-gray-700">WeChat</span>
+            </button>
+
+            <button onClick={() => shareToSocial('line')} className="flex flex-col items-center gap-2">
+              <div className="w-16 h-16 rounded-full bg-[#00B900] flex items-center justify-center shadow-lg hover:scale-110 transition-transform">
+                <span className="text-white font-bold text-xl">LINE</span>
+              </div>
+              <span className="text-xs font-medium text-gray-700">LINE</span>
+            </button>
+
+            <button 
+              onClick={() => {
+                navigator.clipboard.writeText(window.location.href);
+                setShowShareSheet(false);
+              }}
+              className="flex flex-col items-center gap-2">
+              <div className="w-16 h-16 rounded-full bg-gray-600 flex items-center justify-center shadow-lg hover:scale-110 transition-transform">
+                <Icon name="Link" size={28} className="text-white" />
+              </div>
+              <span className="text-xs font-medium text-gray-700">Копировать</span>
+            </button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={showUploadSheet} onOpenChange={setShowUploadSheet}>
+        <SheetContent side="bottom" className="bg-gradient-to-br from-[#FEF7CD] to-[#FDE1D3] border-orange-200">
+          <SheetHeader>
+            <SheetTitle className="text-2xl font-bold text-gray-800">Загрузить видео</SheetTitle>
+          </SheetHeader>
+          
+          <div className="space-y-4 mt-6">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="video/*"
+              onChange={handleFileUpload}
+              className="hidden"
+            />
+            
+            <Button
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full bg-gradient-to-r from-orange-400 to-yellow-400 text-white hover:from-orange-500 hover:to-yellow-500 h-16 text-lg"
+            >
+              <Icon name="Upload" size={24} className="mr-2" />
+              Выбрать видео из галереи
+            </Button>
+
+            <Button
+              onClick={() => {
+                console.log('Opening camera...');
+                setShowUploadSheet(false);
+              }}
+              className="w-full bg-white/90 border-2 border-orange-400 text-gray-800 hover:bg-orange-50 h-16 text-lg"
+            >
+              <Icon name="Camera" size={24} className="mr-2" />
+              Снять видео
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <Dialog open={showAboutDialog} onOpenChange={setShowAboutDialog}>
+        <DialogContent className="max-w-md bg-gradient-to-br from-[#FEF7CD] to-[#FDE1D3] border-orange-200">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-gray-800">О приложении</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-6">
+            <div className="text-center">
+              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-orange-400 to-yellow-400 mx-auto mb-4 flex items-center justify-center shadow-xl">
+                <span className="text-white font-bold text-4xl">G</span>
+              </div>
+              <h3 className="text-2xl font-bold text-gray-800 mb-2">GoShorts</h3>
+              <p className="text-sm text-gray-600">Версия 1.0.0</p>
+            </div>
+
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-sm">
+              <p className="text-gray-700 leading-relaxed">
+                GoShorts — это мини-приложение для просмотра коротких видео с солнечным дизайном и удобным интерфейсом.
+              </p>
+            </div>
+
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-sm">
+              <div className="flex items-center gap-3 mb-2">
+                <Icon name="Code" size={20} className="text-orange-600" />
+                <p className="font-semibold text-gray-800">Разработчик</p>
+              </div>
+              <p className="text-gray-700">Ivan Gromov</p>
+              <p className="text-sm text-gray-500 mt-1">Full Stack Developer</p>
+            </div>
+
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-sm">
+              <div className="flex items-center gap-3 mb-2">
+                <Icon name="Mail" size={20} className="text-orange-600" />
+                <p className="font-semibold text-gray-800">Контакты</p>
+              </div>
+              <p className="text-sm text-gray-600">
+                Для связи и предложений:<br />
+                ivan.gromov@example.com
+              </p>
+            </div>
+
+            <p className="text-center text-xs text-gray-500">
+              © 2025 GoShorts. Все права защищены.
+            </p>
           </div>
         </DialogContent>
       </Dialog>
