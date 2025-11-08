@@ -213,6 +213,11 @@ export default function Index() {
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [profileName, setProfileName] = useState('@my_profile');
   const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
+  const [showManageVideos, setShowManageVideos] = useState(false);
+  const [tiktokUrl, setTiktokUrl] = useState('');
+  const [isImporting, setIsImporting] = useState(false);
+  const [importMessage, setImportMessage] = useState('');
+  const [tiktokVideos, setTiktokVideos] = useState<any[]>([]);
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
@@ -311,7 +316,43 @@ export default function Index() {
 
   useEffect(() => {
     loadProfileFromBackend();
+    loadTiktokVideos();
   }, []);
+
+  const loadTiktokVideos = async () => {
+    try {
+      const response = await fetch('https://functions.poehali.dev/9d82d2f4-ad9d-4c3f-95f6-c881f0ea5002', {
+        method: 'GET',
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.videos && data.videos.length > 0) {
+          setTiktokVideos(data.videos);
+          const convertedVideos = data.videos.map((v: any, index: number) => ({
+            id: 1000 + index,
+            videoUrl: v.video_url,
+            author: v.author,
+            authorAvatar: v.author_avatar,
+            description: v.description,
+            likes: v.likes || 0,
+            comments: v.comments || 0,
+            shares: v.shares || 0,
+            views: v.views || 0,
+            isLiked: false,
+            isSaved: false,
+            isFollowing: false,
+            hashtags: v.hashtags || [],
+            trending: false,
+            isLive: false,
+          }));
+          setVideos([...mockVideos, ...convertedVideos]);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading TikTok videos:', error);
+    }
+  };
 
   const loadProfileFromBackend = async () => {
     try {
@@ -603,6 +644,61 @@ export default function Index() {
     }
   };
 
+  const handleImportTiktok = async () => {
+    if (!tiktokUrl.trim()) {
+      setImportMessage('Введите ссылку на TikTok видео');
+      return;
+    }
+
+    setIsImporting(true);
+    setImportMessage('');
+
+    try {
+      const userId = localStorage.getItem('goShorts_userId') || 'user_' + Math.random().toString(36).substring(7);
+      
+      const response = await fetch('https://functions.poehali.dev/9d82d2f4-ad9d-4c3f-95f6-c881f0ea5002', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': userId,
+        },
+        body: JSON.stringify({
+          tiktok_url: tiktokUrl,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setImportMessage('✅ Видео успешно добавлено!');
+        setTiktokUrl('');
+        await loadTiktokVideos();
+        setTimeout(() => setImportMessage(''), 3000);
+      } else {
+        setImportMessage('❌ ' + (data.error || 'Ошибка при импорте видео'));
+      }
+    } catch (error) {
+      console.error('Error importing TikTok:', error);
+      setImportMessage('❌ Ошибка соединения');
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const handleDeleteTiktokVideo = async (videoId: number) => {
+    try {
+      const response = await fetch(`https://functions.poehali.dev/9d82d2f4-ad9d-4c3f-95f6-c881f0ea5002?id=${videoId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        await loadTiktokVideos();
+      }
+    } catch (error) {
+      console.error('Error deleting video:', error);
+    }
+  };
+
   const renderProfileTab = () => (
     <div className="h-full overflow-y-auto pb-20 pt-20 px-6 animate-fade-in">
       <div className="max-w-md mx-auto">
@@ -672,6 +768,16 @@ export default function Index() {
             <div className="flex items-center gap-3">
               <Icon name="Globe" size={24} className="text-orange-600" />
               <span className="font-medium text-gray-800">Язык: {language === 'ru' ? 'Русский' : 'English'}</span>
+            </div>
+            <Icon name="ChevronRight" size={20} className="text-gray-400" />
+          </button>
+
+          <button 
+            onClick={() => setShowManageVideos(true)}
+            className="w-full bg-white/90 backdrop-blur-sm rounded-2xl p-4 flex items-center justify-between shadow-lg hover:scale-105 transition-transform">
+            <div className="flex items-center gap-3">
+              <Icon name="Video" size={24} className="text-orange-600" />
+              <span className="font-medium text-gray-800">Управление видео</span>
             </div>
             <Icon name="ChevronRight" size={20} className="text-gray-400" />
           </button>
@@ -1510,6 +1616,88 @@ export default function Index() {
             >
               Сохранить изменения
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showManageVideos} onOpenChange={setShowManageVideos}>
+        <DialogContent className="max-w-md bg-gradient-to-br from-[#FEF7CD] to-[#FDE1D3] border-orange-200 max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-gray-800">Управление видео из TikTok</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-sm">
+              <p className="text-sm text-gray-700 mb-3">
+                Вставьте ссылку на TikTok видео, чтобы добавить его в ленту GoShorts
+              </p>
+              <div className="flex gap-2">
+                <Input
+                  type="text"
+                  value={tiktokUrl}
+                  onChange={(e) => setTiktokUrl(e.target.value)}
+                  placeholder="https://www.tiktok.com/@user/video/..."
+                  className="flex-1 bg-white/90 border-orange-200"
+                />
+                <Button
+                  onClick={handleImportTiktok}
+                  disabled={isImporting}
+                  className="bg-gradient-to-r from-orange-400 to-yellow-400 text-white"
+                >
+                  {isImporting ? (
+                    <Icon name="Loader2" size={20} className="animate-spin" />
+                  ) : (
+                    <Icon name="Plus" size={20} />
+                  )}
+                </Button>
+              </div>
+              {importMessage && (
+                <p className={`text-sm mt-2 ${importMessage.startsWith('✅') ? 'text-green-600' : 'text-red-600'}`}>
+                  {importMessage}
+                </p>
+              )}
+            </div>
+
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-sm">
+              <h3 className="font-semibold text-gray-800 mb-3">
+                Добавленные видео ({tiktokVideos.length})
+              </h3>
+              {tiktokVideos.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-4">Пока нет добавленных видео</p>
+              ) : (
+                <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                  {tiktokVideos.map((video) => (
+                    <div key={video.id} className="flex items-center justify-between p-2 bg-white rounded-lg">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-800">{video.author}</p>
+                        <p className="text-xs text-gray-500 line-clamp-1">{video.description}</p>
+                      </div>
+                      <button
+                        onClick={() => handleDeleteTiktokVideo(video.id)}
+                        className="ml-2 text-red-500 hover:text-red-700"
+                      >
+                        <Icon name="Trash2" size={18} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
+              <div className="flex items-start gap-2">
+                <Icon name="Info" size={20} className="text-blue-600 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-blue-800">
+                  <p className="font-semibold mb-1">Как это работает?</p>
+                  <ul className="space-y-1 text-xs">
+                    <li>1. Скопируйте ссылку на видео из TikTok</li>
+                    <li>2. Вставьте её в поле выше</li>
+                    <li>3. Нажмите кнопку добавления</li>
+                    <li>4. Видео появится в общей ленте</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
