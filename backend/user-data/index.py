@@ -46,9 +46,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 )
                 settings = cur.fetchone()
                 
+                cur.execute(
+                    "SELECT profile_name, avatar_url FROM users WHERE user_id = %s",
+                    (user_id,)
+                )
+                profile = cur.fetchone()
+                
                 result = {
                     'videos': [dict(v) for v in videos] if videos else [],
-                    'settings': dict(settings) if settings else None
+                    'settings': dict(settings) if settings else None,
+                    'profile': dict(profile) if profile else None
                 }
                 
                 return {
@@ -120,6 +127,23 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             settings.get('notifications_enabled', True),
                             settings.get('auto_sound', False)
                         )
+                    )
+                
+                elif action == 'update_profile':
+                    profile_name = body_data.get('profile_name', '@my_profile')
+                    avatar_url = body_data.get('avatar_url')
+                    
+                    cur.execute(
+                        """
+                        INSERT INTO users (user_id, profile_name, avatar_url)
+                        VALUES (%s, %s, %s)
+                        ON CONFLICT (user_id)
+                        DO UPDATE SET 
+                            profile_name = %s,
+                            avatar_url = %s,
+                            updated_at = CURRENT_TIMESTAMP
+                        """,
+                        (user_id, profile_name, avatar_url, profile_name, avatar_url)
                     )
                 
                 conn.commit()

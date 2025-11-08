@@ -310,6 +310,34 @@ export default function Index() {
   }, []);
 
   useEffect(() => {
+    loadProfileFromBackend();
+  }, []);
+
+  const loadProfileFromBackend = async () => {
+    try {
+      const userId = localStorage.getItem('goShorts_userId') || 'user_' + Math.random().toString(36).substring(7);
+      localStorage.setItem('goShorts_userId', userId);
+      
+      const response = await fetch('https://functions.poehali.dev/be39ce1f-14f8-4292-8617-09632a97455b', {
+        method: 'GET',
+        headers: {
+          'X-User-Id': userId,
+        },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.profile) {
+          setProfileName(data.profile.profile_name || '@my_profile');
+          setProfileAvatar(data.profile.avatar_url || null);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading profile:', error);
+    }
+  };
+
+  useEffect(() => {
     if (!viewHistory.includes(videos[currentVideoIndex].id)) {
       setViewHistory([...viewHistory, videos[currentVideoIndex].id]);
     }
@@ -549,6 +577,29 @@ export default function Index() {
         setProfileAvatar(reader.result as string);
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const saveProfileToBackend = async () => {
+    try {
+      const userId = localStorage.getItem('goShorts_userId') || 'user_' + Math.random().toString(36).substring(7);
+      
+      await fetch('https://functions.poehali.dev/be39ce1f-14f8-4292-8617-09632a97455b', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': userId,
+        },
+        body: JSON.stringify({
+          action: 'update_profile',
+          profile_name: profileName,
+          avatar_url: profileAvatar,
+        }),
+      });
+      
+      console.log('Profile saved successfully!');
+    } catch (error) {
+      console.error('Error saving profile:', error);
     }
   };
 
@@ -1445,7 +1496,10 @@ export default function Index() {
             </div>
 
             <Button
-              onClick={() => setShowEditProfile(false)}
+              onClick={() => {
+                saveProfileToBackend();
+                setShowEditProfile(false);
+              }}
               className="w-full bg-gradient-to-r from-orange-400 to-yellow-400 text-white hover:from-orange-500 hover:to-yellow-500"
             >
               Сохранить изменения

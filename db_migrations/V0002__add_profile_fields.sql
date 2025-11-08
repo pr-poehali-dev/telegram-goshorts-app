@@ -1,0 +1,2 @@
+ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_name VARCHAR(255) DEFAULT '@my_profile';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;

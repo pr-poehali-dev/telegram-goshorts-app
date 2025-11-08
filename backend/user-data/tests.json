@@ -57,6 +57,25 @@
         "success": true
       },
       "bodyMatcher": "partial"
+    },
+    {
+      "name": "Test POST update profile",
+      "method": "POST",
+      "path": "/",
+      "headers": {
+        "X-User-Id": "test_user_123",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "action": "update_profile",
+        "profile_name": "@cool_user",
+        "avatar_url": "https://example.com/avatar.jpg"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true
+      },
+      "bodyMatcher": "partial"
     }
   ]
 }
