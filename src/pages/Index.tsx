@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import Icon from '@/components/ui/icon';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 
 interface Video {
   id: number;
@@ -11,6 +13,7 @@ interface Video {
   shares: number;
   isLiked: boolean;
   isSaved: boolean;
+  hashtags: string[];
 }
 
 const mockVideos: Video[] = [
@@ -24,6 +27,7 @@ const mockVideos: Video[] = [
     shares: 128,
     isLiked: false,
     isSaved: false,
+    hashtags: ['sunset', 'nature', 'golden', 'vibes'],
   },
   {
     id: 2,
@@ -35,6 +39,7 @@ const mockVideos: Video[] = [
     shares: 234,
     isLiked: false,
     isSaved: false,
+    hashtags: ['beach', 'summer', 'ocean', 'waves'],
   },
   {
     id: 3,
@@ -46,6 +51,31 @@ const mockVideos: Video[] = [
     shares: 445,
     isLiked: false,
     isSaved: false,
+    hashtags: ['travel', 'adventure', 'sunrise', 'explore'],
+  },
+  {
+    id: 4,
+    videoUrl: 'https://sample-videos.com/video321/mp4/720/big_buck_bunny_720p_1mb.mp4',
+    author: '@foodie_life',
+    description: 'Лучшие закаты и вкусная еда 🍕 #food #sunset',
+    likes: 18900,
+    comments: 421,
+    shares: 156,
+    isLiked: false,
+    isSaved: false,
+    hashtags: ['food', 'sunset', 'cooking', 'yummy'],
+  },
+  {
+    id: 5,
+    videoUrl: 'https://sample-videos.com/video321/mp4/720/big_buck_bunny_720p_1mb.mp4',
+    author: '@fitness_guru',
+    description: 'Morning workout routine 💪 #fitness #health',
+    likes: 32100,
+    comments: 678,
+    shares: 289,
+    isLiked: false,
+    isSaved: false,
+    hashtags: ['fitness', 'health', 'workout', 'morning'],
   },
 ];
 
@@ -55,7 +85,20 @@ export default function Index() {
   const [activeTab, setActiveTab] = useState('home');
   const [touchStart, setTouchStart] = useState(0);
   const [touchEnd, setTouchEnd] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedHashtag, setSelectedHashtag] = useState<string | null>(null);
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
+
+  const allHashtags = Array.from(new Set(mockVideos.flatMap(v => v.hashtags)));
+  const savedVideos = videos.filter(v => v.isSaved);
+  
+  const filteredVideos = videos.filter(v => {
+    const matchesSearch = searchQuery === '' || 
+      v.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      v.author.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesHashtag = !selectedHashtag || v.hashtags.includes(selectedHashtag);
+    return matchesSearch && matchesHashtag;
+  });
 
   useEffect(() => {
     const currentVideo = videoRefs.current[currentVideoIndex];
@@ -107,14 +150,185 @@ export default function Index() {
 
   const currentVideo = videos[currentVideoIndex];
 
+  const renderSearchTab = () => (
+    <div className="h-full overflow-y-auto pb-20 pt-20 px-6 animate-fade-in">
+      <div className="max-w-md mx-auto space-y-6">
+        <div className="relative">
+          <Icon name="Search" size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Input
+            type="text"
+            placeholder="Поиск видео, авторов..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10 bg-white/90 backdrop-blur-sm border-orange-200 focus:border-orange-400"
+          />
+        </div>
+
+        <div>
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">Популярные теги</h3>
+          <div className="flex flex-wrap gap-2">
+            {allHashtags.map(tag => (
+              <Badge
+                key={tag}
+                onClick={() => setSelectedHashtag(selectedHashtag === tag ? null : tag)}
+                className={`cursor-pointer transition-all ${
+                  selectedHashtag === tag
+                    ? 'bg-primary text-white'
+                    : 'bg-white/90 text-gray-700 hover:bg-orange-100'
+                }`}
+              >
+                #{tag}
+              </Badge>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">
+            {filteredVideos.length} результатов
+          </h3>
+          <div className="grid grid-cols-2 gap-3">
+            {filteredVideos.map(video => (
+              <div
+                key={video.id}
+                onClick={() => {
+                  setCurrentVideoIndex(videos.findIndex(v => v.id === video.id));
+                  setActiveTab('home');
+                }}
+                className="relative aspect-[9/16] rounded-2xl overflow-hidden bg-gradient-to-br from-orange-300 to-yellow-200 cursor-pointer hover:scale-105 transition-transform shadow-lg"
+              >
+                <div className="absolute inset-0 bg-black/30 flex items-end p-3">
+                  <div className="text-white">
+                    <p className="text-xs font-semibold mb-1">{video.author}</p>
+                    <div className="flex items-center gap-2 text-xs">
+                      <div className="flex items-center gap-1">
+                        <Icon name="Heart" size={12} />
+                        <span>{formatNumber(video.likes)}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Icon name="MessageCircle" size={12} />
+                        <span>{formatNumber(video.comments)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderFavoritesTab = () => (
+    <div className="h-full overflow-y-auto pb-20 pt-20 px-6 animate-fade-in">
+      <div className="max-w-md mx-auto">
+        <h2 className="text-2xl font-bold text-gray-800 mb-6">Избранное</h2>
+        {savedVideos.length === 0 ? (
+          <div className="text-center py-20">
+            <Icon name="Bookmark" size={64} className="mx-auto text-gray-300 mb-4" />
+            <p className="text-gray-500">Нет сохранённых видео</p>
+            <p className="text-sm text-gray-400 mt-2">Добавляйте видео в избранное</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            {savedVideos.map(video => (
+              <div
+                key={video.id}
+                onClick={() => {
+                  setCurrentVideoIndex(videos.findIndex(v => v.id === video.id));
+                  setActiveTab('home');
+                }}
+                className="relative aspect-[9/16] rounded-2xl overflow-hidden bg-gradient-to-br from-orange-300 to-yellow-200 cursor-pointer hover:scale-105 transition-transform shadow-lg"
+              >
+                <div className="absolute inset-0 bg-black/30 flex items-end p-3">
+                  <div className="text-white">
+                    <p className="text-xs font-semibold mb-1">{video.author}</p>
+                    <div className="flex items-center gap-2 text-xs">
+                      <div className="flex items-center gap-1">
+                        <Icon name="Heart" size={12} />
+                        <span>{formatNumber(video.likes)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderProfileTab = () => (
+    <div className="h-full overflow-y-auto pb-20 pt-20 px-6 animate-fade-in">
+      <div className="max-w-md mx-auto">
+        <div className="text-center mb-8">
+          <div className="w-24 h-24 rounded-full bg-gradient-to-br from-orange-400 to-yellow-400 mx-auto mb-4 flex items-center justify-center shadow-xl">
+            <span className="text-white font-bold text-4xl">Я</span>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-800 mb-1">@my_profile</h2>
+          <p className="text-gray-500 text-sm">Мой профиль GoShorts</p>
+        </div>
+
+        <div className="bg-white/90 backdrop-blur-sm rounded-3xl p-6 shadow-lg mb-6">
+          <div className="grid grid-cols-3 gap-4 text-center">
+            <div>
+              <p className="text-2xl font-bold text-gray-800">{savedVideos.length}</p>
+              <p className="text-xs text-gray-500">Сохранено</p>
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-800">
+                {videos.filter(v => v.isLiked).length}
+              </p>
+              <p className="text-xs text-gray-500">Лайков</p>
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-800">{videos.length}</p>
+              <p className="text-xs text-gray-500">Просмотрено</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <button className="w-full bg-white/90 backdrop-blur-sm rounded-2xl p-4 flex items-center justify-between shadow-lg hover:scale-105 transition-transform">
+            <div className="flex items-center gap-3">
+              <Icon name="Settings" size={24} className="text-orange-600" />
+              <span className="font-medium text-gray-800">Настройки</span>
+            </div>
+            <Icon name="ChevronRight" size={20} className="text-gray-400" />
+          </button>
+
+          <button className="w-full bg-white/90 backdrop-blur-sm rounded-2xl p-4 flex items-center justify-between shadow-lg hover:scale-105 transition-transform">
+            <div className="flex items-center gap-3">
+              <Icon name="Globe" size={24} className="text-orange-600" />
+              <span className="font-medium text-gray-800">Язык: Русский</span>
+            </div>
+            <Icon name="ChevronRight" size={20} className="text-gray-400" />
+          </button>
+
+          <button className="w-full bg-white/90 backdrop-blur-sm rounded-2xl p-4 flex items-center justify-between shadow-lg hover:scale-105 transition-transform">
+            <div className="flex items-center gap-3">
+              <Icon name="Info" size={24} className="text-orange-600" />
+              <span className="font-medium text-gray-800">О приложении</span>
+            </div>
+            <Icon name="ChevronRight" size={20} className="text-gray-400" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-gradient-to-br from-[#FEF7CD] via-[#FDE1D3] to-[#FEC6A1]">
-      <header className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-6 py-4 bg-gradient-to-b from-black/20 to-transparent">
-        <h1 className="text-2xl font-bold text-white drop-shadow-lg">GoShorts</h1>
-        <button className="text-white">
-          <Icon name="Search" size={24} />
-        </button>
-      </header>
+      {activeTab === 'home' && (
+        <>
+          <header className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-6 py-4 bg-gradient-to-b from-black/20 to-transparent">
+            <h1 className="text-2xl font-bold text-white drop-shadow-lg">GoShorts</h1>
+            <button onClick={() => setActiveTab('search')} className="text-white">
+              <Icon name="Search" size={24} />
+            </button>
+          </header>
 
       <div
         className="relative h-full w-full"
@@ -212,6 +426,12 @@ export default function Index() {
           <p className="text-white/30 text-sm">Свайп вверх/вниз</p>
         </div>
       </div>
+        </>
+      )}
+
+      {activeTab === 'search' && renderSearchTab()}
+      {activeTab === 'favorites' && renderFavoritesTab()}
+      {activeTab === 'profile' && renderProfileTab()}
 
       <nav className="absolute bottom-0 left-0 right-0 z-20 bg-white/95 backdrop-blur-md border-t border-orange-200 shadow-xl">
         <div className="flex items-center justify-around py-3 px-4 max-w-md mx-auto">
