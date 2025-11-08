@@ -1,0 +1,31 @@
+{
+  "tests": [
+    {
+      "name": "Test OPTIONS request",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedHeaders": {
+        "Access-Control-Allow-Origin": "*"
+      }
+    },
+    {
+      "name": "Test POST chat message",
+      "method": "POST",
+      "path": "/",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "message": "Привет!",
+        "history": [],
+        "style": "friendly"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "response": "string"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

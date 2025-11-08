@@ -615,8 +615,8 @@ export default function Index() {
           <div className="w-32 h-32 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 mx-auto mb-4 flex items-center justify-center shadow-xl animate-pulse-soft">
             <Icon name="Bot" size={64} className="text-white" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-1">Цифровой двойник</h2>
-          <p className="text-gray-600 text-sm">Ваш личный ИИ-ассистент</p>
+          <h2 className="text-2xl font-bold text-gray-800 mb-1">ИИ Ассистент</h2>
+          <p className="text-gray-600 text-sm">Твой умный помощник на базе Yandex GPT</p>
         </div>
 
         <div className="space-y-3 mb-6">
@@ -626,7 +626,7 @@ export default function Index() {
             <div className="flex items-center gap-3">
               <Icon name="Settings" size={24} className="text-purple-600" />
               <div className="text-left">
-                <p className="font-medium text-gray-800">Настройки двойника</p>
+                <p className="font-medium text-gray-800">Настройки ИИ</p>
                 <p className="text-xs text-gray-500">Режим: {twinMode === 'manual' ? 'По запросу' : twinMode === 'semi' ? 'Полуавтомат' : 'Полный'}</p>
               </div>
             </div>
@@ -649,7 +649,7 @@ export default function Index() {
 
         <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl overflow-hidden mb-4">
           <div className="bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-3 flex items-center justify-between">
-            <h3 className="text-white font-semibold">Чат с двойником</h3>
+            <h3 className="text-white font-semibold">Чат с ИИ</h3>
             <button onClick={() => setTwinChat([])} className="text-white/80 hover:text-white">
               <Icon name="Trash2" size={18} />
             </button>
@@ -659,7 +659,7 @@ export default function Index() {
             {twinChat.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-gray-400">
                 <Icon name="MessagesSquare" size={48} className="mb-2 opacity-50" />
-                <p className="text-sm">Начните диалог с вашим двойником</p>
+                <p className="text-sm">Начни диалог с ИИ-ассистентом</p>
               </div>
             ) : (
               twinChat.map((msg, idx) => (
@@ -682,54 +682,92 @@ export default function Index() {
               <Input
                 value={twinMessage}
                 onChange={(e) => setTwinMessage(e.target.value)}
-                placeholder="Напишите сообщение..."
+                placeholder="Напиши сообщение..."
                 className="bg-white/90 border-purple-200 focus:border-purple-400"
-                onKeyPress={(e) => {
+                onKeyPress={async (e) => {
                   if (e.key === 'Enter' && twinMessage.trim()) {
                     const userMsg = {
                       role: 'user' as const,
                       text: twinMessage,
                       timestamp: new Date().toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'})
                     };
-                    const twinResponses = [
-                      'Отличная идея! Я помогу тебе с этим.',
-                      'Понял тебя. Давай подумаем вместе.',
-                      'Интересный вопрос! Вот мое мнение...',
-                      'Я проанализировал информацию. Вот что думаю.',
-                      'Хороший момент для обсуждения!'
-                    ];
-                    const twinMsg = {
-                      role: 'twin' as const,
-                      text: twinResponses[Math.floor(Math.random() * twinResponses.length)],
-                      timestamp: new Date().toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'})
-                    };
-                    setTwinChat([...twinChat, userMsg, twinMsg]);
+                    const updatedChat = [...twinChat, userMsg];
+                    setTwinChat(updatedChat);
                     setTwinMessage('');
+                    
+                    try {
+                      const response = await fetch('https://functions.poehali.dev/01af0181-4117-4cbc-bc41-8d616ec78163', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                          message: userMsg.text,
+                          history: twinChat.slice(-10),
+                          style: twinStyle,
+                        }),
+                      });
+                      
+                      const data = await response.json();
+                      const twinMsg = {
+                        role: 'twin' as const,
+                        text: data.response || 'Не удалось получить ответ.',
+                        timestamp: new Date().toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'})
+                      };
+                      setTwinChat([...updatedChat, twinMsg]);
+                    } catch (error) {
+                      console.error('Error calling AI:', error);
+                      const errorMsg = {
+                        role: 'twin' as const,
+                        text: 'Извини, не могу ответить прямо сейчас. Попробуй позже!',
+                        timestamp: new Date().toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'})
+                      };
+                      setTwinChat([...updatedChat, errorMsg]);
+                    }
                   }
                 }}
               />
               <Button
-                onClick={() => {
+                onClick={async () => {
                   if (twinMessage.trim()) {
                     const userMsg = {
                       role: 'user' as const,
                       text: twinMessage,
                       timestamp: new Date().toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'})
                     };
-                    const twinResponses = [
-                      'Отличная идея! Я помогу тебе с этим.',
-                      'Понял тебя. Давай подумаем вместе.',
-                      'Интересный вопрос! Вот мое мнение...',
-                      'Я проанализировал информацию. Вот что думаю.',
-                      'Хороший момент для обсуждения!'
-                    ];
-                    const twinMsg = {
-                      role: 'twin' as const,
-                      text: twinResponses[Math.floor(Math.random() * twinResponses.length)],
-                      timestamp: new Date().toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'})
-                    };
-                    setTwinChat([...twinChat, userMsg, twinMsg]);
+                    const updatedChat = [...twinChat, userMsg];
+                    setTwinChat(updatedChat);
                     setTwinMessage('');
+                    
+                    try {
+                      const response = await fetch('https://functions.poehali.dev/01af0181-4117-4cbc-bc41-8d616ec78163', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                          message: userMsg.text,
+                          history: twinChat.slice(-10),
+                          style: twinStyle,
+                        }),
+                      });
+                      
+                      const data = await response.json();
+                      const twinMsg = {
+                        role: 'twin' as const,
+                        text: data.response || 'Не удалось получить ответ.',
+                        timestamp: new Date().toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'})
+                      };
+                      setTwinChat([...updatedChat, twinMsg]);
+                    } catch (error) {
+                      console.error('Error calling AI:', error);
+                      const errorMsg = {
+                        role: 'twin' as const,
+                        text: 'Извини, не могу ответить прямо сейчас. Попробуй позже!',
+                        timestamp: new Date().toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'})
+                      };
+                      setTwinChat([...updatedChat, errorMsg]);
+                    }
                   }
                 }}
                 className="bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600"
@@ -1146,6 +1184,26 @@ export default function Index() {
           </button>
 
           <button
+            onClick={() => setActiveTab('favorites')}
+            className={`flex flex-col items-center gap-1 transition-all ${
+              activeTab === 'favorites' ? 'scale-110' : ''
+            }`}
+          >
+            <Icon
+              name="Bookmark"
+              size={26}
+              className={activeTab === 'favorites' ? 'text-primary' : 'text-gray-500'}
+            />
+            <span
+              className={`text-xs font-medium ${
+                activeTab === 'favorites' ? 'text-primary' : 'text-gray-500'
+              }`}
+            >
+              Избранное
+            </span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('twin')}
             className={`flex flex-col items-center gap-1 transition-all ${
               activeTab === 'twin' ? 'scale-110' : ''
@@ -1168,27 +1226,7 @@ export default function Index() {
                 activeTab === 'twin' ? 'text-purple-600' : 'text-gray-500'
               }`}
             >
-              Двойник
-            </span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('favorites')}
-            className={`flex flex-col items-center gap-1 transition-all ${
-              activeTab === 'favorites' ? 'scale-110' : ''
-            }`}
-          >
-            <Icon
-              name="Bookmark"
-              size={26}
-              className={activeTab === 'favorites' ? 'text-primary' : 'text-gray-500'}
-            />
-            <span
-              className={`text-xs font-medium ${
-                activeTab === 'favorites' ? 'text-primary' : 'text-gray-500'
-              }`}
-            >
-              Избранное
+              ИИ
             </span>
           </button>
 
@@ -1500,6 +1538,12 @@ export default function Index() {
                   @vlados0402
                 </a>
               </p>
+              <p className="text-sm text-gray-600 mt-2">
+                Официальная группа:<br />
+                <a href="https://t.me/Go_Shorts" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                  t.me/Go_Shorts
+                </a>
+              </p>
             </div>
 
             <p className="text-center text-xs text-gray-500">
@@ -1702,7 +1746,7 @@ export default function Index() {
       <Dialog open={showTwinSettings} onOpenChange={setShowTwinSettings}>
         <DialogContent className="max-w-md bg-gradient-to-br from-[#FEF7CD] to-[#FDE1D3] border-orange-200">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-gray-800">Настройки двойника</DialogTitle>
+            <DialogTitle className="text-2xl font-bold text-gray-800">Настройки ИИ</DialogTitle>
           </DialogHeader>
           
           <div className="space-y-6">
