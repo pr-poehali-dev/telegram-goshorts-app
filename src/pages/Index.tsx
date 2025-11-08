@@ -113,6 +113,7 @@ const mockVideos: Video[] = [
 ];
 
 export default function Index() {
+  const [isLoading, setIsLoading] = useState(true);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const [videos, setVideos] = useState(mockVideos);
   const [activeTab, setActiveTab] = useState('home');
@@ -185,6 +186,13 @@ export default function Index() {
     }
     setShowShareSheet(false);
   };
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     const currentVideo = videoRefs.current[currentVideoIndex];
@@ -484,6 +492,30 @@ export default function Index() {
       </div>
     </div>
   );
+
+  if (isLoading) {
+    return (
+      <div className="h-screen w-screen bg-gradient-to-br from-[#FEF7CD] via-[#FDE1D3] to-[#FEC6A1] flex items-center justify-center">
+        <div className="text-center animate-fade-in">
+          <div className="relative mb-8">
+            <div className="w-32 h-32 rounded-full bg-gradient-to-br from-orange-400 to-yellow-400 mx-auto flex items-center justify-center shadow-2xl animate-pulse-soft">
+              <span className="text-white font-bold text-6xl">G</span>
+            </div>
+            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-24 h-24 rounded-full bg-yellow-300/30 blur-xl"></div>
+          </div>
+          <h1 className="text-5xl font-bold text-gray-800 mb-3" style={{ fontFamily: 'Montserrat, sans-serif' }}>
+            GoShorts
+          </h1>
+          <p className="text-gray-600 text-lg mb-8">Солнечные видео каждый день ☀️</p>
+          <div className="flex gap-2 justify-center">
+            <div className="w-3 h-3 rounded-full bg-orange-400 animate-bounce" style={{ animationDelay: '0s' }}></div>
+            <div className="w-3 h-3 rounded-full bg-yellow-400 animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+            <div className="w-3 h-3 rounded-full bg-orange-400 animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-gradient-to-br from-[#FEF7CD] via-[#FDE1D3] to-[#FEC6A1]">
@@ -1035,12 +1067,14 @@ export default function Index() {
 
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-sm">
               <div className="flex items-center gap-3 mb-2">
-                <Icon name="Mail" size={20} className="text-orange-600" />
+                <Icon name="Send" size={20} className="text-orange-600" />
                 <p className="font-semibold text-gray-800">Контакты</p>
               </div>
               <p className="text-sm text-gray-600">
                 Для связи и предложений:<br />
-                ivan.gromov@example.com
+                <a href="https://t.me/vlados0402" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                  @vlados0402
+                </a>
               </p>
             </div>
 
