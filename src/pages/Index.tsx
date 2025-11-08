@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import WebApp from '@twa-dev/sdk';
 import Icon from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -218,6 +219,10 @@ export default function Index() {
   const [isImporting, setIsImporting] = useState(false);
   const [importMessage, setImportMessage] = useState('');
   const [tiktokVideos, setTiktokVideos] = useState<any[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [pendingVideos, setPendingVideos] = useState<any[]>([]);
+  const [showModeration, setShowModeration] = useState(false);
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
@@ -315,13 +320,61 @@ export default function Index() {
   }, []);
 
   useEffect(() => {
+    try {
+      WebApp.ready();
+      WebApp.expand();
+      WebApp.MainButton.hide();
+      WebApp.BackButton.hide();
+      const tgUserId = WebApp.initDataUnsafe?.user?.id;
+      if (tgUserId) {
+        localStorage.setItem('goShorts_userId', `tg_${tgUserId}`);
+      }
+    } catch (e) {
+      console.log('Not running in Telegram');
+    }
+    
     loadProfileFromBackend();
     loadTiktokVideos();
+    loadCategories();
   }, []);
+
+  const loadCategories = async () => {
+    try {
+      const response = await fetch('https://functions.poehali.dev/9d82d2f4-ad9d-4c3f-95f6-c881f0ea5002?action=categories', {
+        method: 'GET',
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setCategories(data.categories || []);
+      }
+    } catch (error) {
+      console.error('Error loading categories:', error);
+    }
+  };
+
+  const loadPendingVideos = async () => {
+    try {
+      const response = await fetch('https://functions.poehali.dev/9d82d2f4-ad9d-4c3f-95f6-c881f0ea5002?action=pending', {
+        method: 'GET',
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setPendingVideos(data.videos || []);
+      }
+    } catch (error) {
+      console.error('Error loading pending videos:', error);
+    }
+  };
 
   const loadTiktokVideos = async () => {
     try {
-      const response = await fetch('https://functions.poehali.dev/9d82d2f4-ad9d-4c3f-95f6-c881f0ea5002', {
+      const url = selectedCategory 
+        ? `https://functions.poehali.dev/9d82d2f4-ad9d-4c3f-95f6-c881f0ea5002?category=${selectedCategory}`
+        : 'https://functions.poehali.dev/9d82d2f4-ad9d-4c3f-95f6-c881f0ea5002';
+      
+      const response = await fetch(url, {
         method: 'GET',
       });
       
@@ -644,7 +697,7 @@ export default function Index() {
     }
   };
 
-  const handleImportTiktok = async () => {
+  const handleImportTiktok = async (category: string = 'general') => {
     if (!tiktokUrl.trim()) {
       setImportMessage('Введите ссылку на TikTok видео');
       return;
@@ -664,15 +717,15 @@ export default function Index() {
         },
         body: JSON.stringify({
           tiktok_url: tiktokUrl,
+          category: category,
         }),
       });
 
       const data = await response.json();
 
       if (response.ok && data.success) {
-        setImportMessage('✅ Видео успешно добавлено!');
+        setImportMessage('✅ Видео отправлено на модерацию!');
         setTiktokUrl('');
-        await loadTiktokVideos();
         setTimeout(() => setImportMessage(''), 3000);
       } else {
         setImportMessage('❌ ' + (data.error || 'Ошибка при импорте видео'));
@@ -696,6 +749,31 @@ export default function Index() {
       }
     } catch (error) {
       console.error('Error deleting video:', error);
+    }
+  };
+
+  const handleModerateVideo = async (videoId: number, action: 'approve' | 'reject') => {
+    try {
+      const userId = localStorage.getItem('goShorts_userId') || 'admin';
+      
+      const response = await fetch('https://functions.poehali.dev/9d82d2f4-ad9d-4c3f-95f6-c881f0ea5002', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': userId,
+        },
+        body: JSON.stringify({
+          video_id: videoId,
+          action: action,
+        }),
+      });
+
+      if (response.ok) {
+        await loadPendingVideos();
+        await loadTiktokVideos();
+      }
+    } catch (error) {
+      console.error('Error moderating video:', error);
     }
   };
 
@@ -783,6 +861,22 @@ export default function Index() {
           </button>
 
           <button 
+            onClick={() => {
+              loadPendingVideos();
+              setShowModeration(true);
+            }}
+            className="w-full bg-white/90 backdrop-blur-sm rounded-2xl p-4 flex items-center justify-between shadow-lg hover:scale-105 transition-transform">
+            <div className="flex items-center gap-3">
+              <Icon name="Shield" size={24} className="text-orange-600" />
+              <span className="font-medium text-gray-800">Модерация</span>
+              {pendingVideos.length > 0 && (
+                <Badge className="bg-red-500 text-white">{pendingVideos.length}</Badge>
+              )}
+            </div>
+            <Icon name="ChevronRight" size={20} className="text-gray-400" />
+          </button>
+
+          <button 
             onClick={() => setShowAboutDialog(true)}
             className="w-full bg-white/90 backdrop-blur-sm rounded-2xl p-4 flex items-center justify-between shadow-lg hover:scale-105 transition-transform">
             <div className="flex items-center gap-3">
@@ -838,34 +932,69 @@ export default function Index() {
     <div className="relative h-screen w-screen overflow-hidden bg-gradient-to-br from-[#FEF7CD] via-[#FDE1D3] to-[#FEC6A1]">
       {activeTab === 'home' && (
         <>
-          <header className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-6 py-4 bg-gradient-to-b from-black/20 to-transparent">
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-white drop-shadow-lg">GoShorts</h1>
-              <button 
-                onClick={() => setShowTrending(!showTrending)}
-                className="text-white">
-                <Icon name="TrendingUp" size={20} />
-              </button>
-              <button 
-                onClick={() => setShowLiveStreams(!showLiveStreams)}
-                className="text-white relative">
-                <Icon name="Radio" size={20} />
-                <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-              </button>
+          <header className="absolute top-0 left-0 right-0 z-20 bg-gradient-to-b from-black/20 to-transparent">
+            <div className="flex items-center justify-between px-6 py-4">
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-bold text-white drop-shadow-lg">GoShorts</h1>
+                <button 
+                  onClick={() => setShowTrending(!showTrending)}
+                  className="text-white">
+                  <Icon name="TrendingUp" size={20} />
+                </button>
+                <button 
+                  onClick={() => setShowLiveStreams(!showLiveStreams)}
+                  className="text-white relative">
+                  <Icon name="Radio" size={20} />
+                  <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                </button>
+              </div>
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => setShowRecommendations(!showRecommendations)}
+                  className="text-white">
+                  <Icon name="Sparkles" size={20} />
+                </button>
+                <button onClick={() => setShowUploadSheet(true)} className="text-white">
+                  <Icon name="Plus" size={24} />
+                </button>
+                <button onClick={() => setActiveTab('search')} className="text-white">
+                  <Icon name="Search" size={24} />
+                </button>
+              </div>
             </div>
-            <div className="flex items-center gap-3">
-              <button 
-                onClick={() => setShowRecommendations(!showRecommendations)}
-                className="text-white">
-                <Icon name="Sparkles" size={20} />
-              </button>
-              <button onClick={() => setShowUploadSheet(true)} className="text-white">
-                <Icon name="Plus" size={24} />
-              </button>
-              <button onClick={() => setActiveTab('search')} className="text-white">
-                <Icon name="Search" size={24} />
-              </button>
-            </div>
+            {categories.length > 0 && (
+              <div className="px-6 pb-3 flex gap-2 overflow-x-auto">
+                <Badge
+                  onClick={() => {
+                    setSelectedCategory(null);
+                    loadTiktokVideos();
+                  }}
+                  className={`cursor-pointer whitespace-nowrap ${
+                    !selectedCategory
+                      ? 'bg-white text-gray-800'
+                      : 'bg-white/30 text-white'
+                  }`}
+                >
+                  Все
+                </Badge>
+                {categories.map((cat) => (
+                  <Badge
+                    key={cat.name}
+                    onClick={() => {
+                      setSelectedCategory(cat.name);
+                      loadTiktokVideos();
+                    }}
+                    className={`cursor-pointer whitespace-nowrap ${
+                      selectedCategory === cat.name
+                        ? 'bg-white text-gray-800'
+                        : 'bg-white/30 text-white'
+                    }`}
+                  >
+                    {cat.display_name}
+                  </Badge>
+                ))}
+              </div>
+            )}
           </header>
 
       <div
@@ -1631,17 +1760,33 @@ export default function Index() {
               <p className="text-sm text-gray-700 mb-3">
                 Вставьте ссылку на TikTok видео, чтобы добавить его в ленту GoShorts
               </p>
-              <div className="flex gap-2">
-                <Input
-                  type="text"
-                  value={tiktokUrl}
-                  onChange={(e) => setTiktokUrl(e.target.value)}
-                  placeholder="https://www.tiktok.com/@user/video/..."
-                  className="flex-1 bg-white/90 border-orange-200"
-                />
+              <Input
+                type="text"
+                value={tiktokUrl}
+                onChange={(e) => setTiktokUrl(e.target.value)}
+                placeholder="https://www.tiktok.com/@user/video/..."
+                className="mb-2 bg-white/90 border-orange-200"
+              />
+              <div className="flex gap-2 mb-2">
+                <select
+                  defaultValue="general"
+                  onChange={(e) => {
+                    const category = e.target.value;
+                    handleImportTiktok(category);
+                  }}
+                  className="flex-1 bg-white/90 border border-orange-200 rounded-lg px-3 py-2 text-sm"
+                  disabled={!tiktokUrl.trim()}
+                >
+                  <option value="">Выбрать категорию...</option>
+                  {categories.map((cat) => (
+                    <option key={cat.name} value={cat.name}>
+                      {cat.display_name}
+                    </option>
+                  ))}
+                </select>
                 <Button
-                  onClick={handleImportTiktok}
-                  disabled={isImporting}
+                  onClick={() => handleImportTiktok('general')}
+                  disabled={isImporting || !tiktokUrl.trim()}
                   className="bg-gradient-to-r from-orange-400 to-yellow-400 text-white"
                 >
                   {isImporting ? (
@@ -1698,6 +1843,53 @@ export default function Index() {
                 </div>
               </div>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showModeration} onOpenChange={setShowModeration}>
+        <DialogContent className="max-w-md bg-gradient-to-br from-[#FEF7CD] to-[#FDE1D3] border-orange-200 max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-gray-800">Модерация видео</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {pendingVideos.length === 0 ? (
+              <div className="text-center py-8">
+                <Icon name="CheckCircle" size={48} className="mx-auto text-green-500 mb-3" />
+                <p className="text-gray-600">Все видео проверены!</p>
+              </div>
+            ) : (
+              pendingVideos.map((video) => (
+                <div key={video.id} className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-sm">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex-1">
+                      <p className="font-semibold text-gray-800">{video.author}</p>
+                      <p className="text-sm text-gray-600 line-clamp-2">{video.description}</p>
+                      <Badge className="mt-1 bg-orange-100 text-orange-800">
+                        {categories.find(c => c.name === video.category)?.display_name || video.category}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 mt-3">
+                    <Button
+                      onClick={() => handleModerateVideo(video.id, 'approve')}
+                      className="flex-1 bg-green-500 text-white hover:bg-green-600"
+                    >
+                      <Icon name="Check" size={16} className="mr-1" />
+                      Одобрить
+                    </Button>
+                    <Button
+                      onClick={() => handleModerateVideo(video.id, 'reject')}
+                      className="flex-1 bg-red-500 text-white hover:bg-red-600"
+                    >
+                      <Icon name="X" size={16} className="mr-1" />
+                      Отклонить
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </DialogContent>
       </Dialog>
