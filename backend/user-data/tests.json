@@ -1,0 +1,62 @@
+{
+  "tests": [
+    {
+      "name": "Test OPTIONS request",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedHeaders": {
+        "Access-Control-Allow-Origin": "*"
+      }
+    },
+    {
+      "name": "Test GET user data",
+      "method": "GET",
+      "path": "/",
+      "headers": {
+        "X-User-Id": "test_user_123"
+      },
+      "expectedStatus": 200
+    },
+    {
+      "name": "Test POST save video",
+      "method": "POST",
+      "path": "/",
+      "headers": {
+        "X-User-Id": "test_user_123",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "action": "save_video",
+        "video_id": 1,
+        "is_saved": true
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Test POST update settings",
+      "method": "POST",
+      "path": "/",
+      "headers": {
+        "X-User-Id": "test_user_123",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "action": "update_settings",
+        "settings": {
+          "dark_mode": true,
+          "language": "en"
+        }
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

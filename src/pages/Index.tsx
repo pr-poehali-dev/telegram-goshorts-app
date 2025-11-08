@@ -2,6 +2,18 @@ import { useState, useRef, useEffect } from 'react';
 import Icon from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+
+interface Comment {
+  id: number;
+  author: string;
+  text: string;
+  timestamp: string;
+  likes: number;
+}
 
 interface Video {
   id: number;
@@ -14,6 +26,7 @@ interface Video {
   isLiked: boolean;
   isSaved: boolean;
   hashtags: string[];
+  commentsList?: Comment[];
 }
 
 const mockVideos: Video[] = [
@@ -87,7 +100,18 @@ export default function Index() {
   const [touchEnd, setTouchEnd] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedHashtag, setSelectedHashtag] = useState<string | null>(null);
+  const [showComments, setShowComments] = useState(false);
+  const [commentText, setCommentText] = useState('');
+  const [showSettings, setShowSettings] = useState(false);
+  const [darkMode, setDarkMode] = useState(false);
+  const [language, setLanguage] = useState('ru');
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
+
+  const mockComments: Comment[] = [
+    { id: 1, author: '@user123', text: 'Невероятно красиво! 😍', timestamp: '2 часа назад', likes: 24 },
+    { id: 2, author: '@traveler', text: 'Где это снято?', timestamp: '5 часов назад', likes: 12 },
+    { id: 3, author: '@sunny_fan', text: 'Обожаю такие закаты ☀️', timestamp: '1 день назад', likes: 45 },
+  ];
 
   const allHashtags = Array.from(new Set(mockVideos.flatMap(v => v.hashtags)));
   const savedVideos = videos.filter(v => v.isSaved);
@@ -140,6 +164,72 @@ export default function Index() {
     const updatedVideos = [...videos];
     updatedVideos[currentVideoIndex].isSaved = !updatedVideos[currentVideoIndex].isSaved;
     setVideos(updatedVideos);
+    saveToBackend();
+  };
+
+  const handleAddComment = () => {
+    if (commentText.trim()) {
+      setCommentText('');
+      setShowComments(false);
+    }
+  };
+
+  const saveToBackend = async () => {
+    try {
+      const userId = 'user_' + Math.random().toString(36).substring(7);
+      
+      const savedVideos = videos.filter(v => v.isSaved);
+      const likedVideos = videos.filter(v => v.isLiked);
+      
+      for (const video of savedVideos) {
+        await fetch('https://functions.poehali.dev/be39ce1f-14f8-4292-8617-09632a97455b', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-User-Id': userId,
+          },
+          body: JSON.stringify({
+            action: 'save_video',
+            video_id: video.id,
+            is_saved: true,
+          }),
+        });
+      }
+      
+      for (const video of likedVideos) {
+        await fetch('https://functions.poehali.dev/be39ce1f-14f8-4292-8617-09632a97455b', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-User-Id': userId,
+          },
+          body: JSON.stringify({
+            action: 'like_video',
+            video_id: video.id,
+            is_liked: true,
+          }),
+        });
+      }
+      
+      await fetch('https://functions.poehali.dev/be39ce1f-14f8-4292-8617-09632a97455b', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': userId,
+        },
+        body: JSON.stringify({
+          action: 'update_settings',
+          settings: {
+            dark_mode: darkMode,
+            language: language,
+          },
+        }),
+      });
+      
+      console.log('Data saved successfully!');
+    } catch (error) {
+      console.error('Error saving data:', error);
+    }
   };
 
   const formatNumber = (num: number) => {
@@ -291,7 +381,9 @@ export default function Index() {
         </div>
 
         <div className="space-y-3">
-          <button className="w-full bg-white/90 backdrop-blur-sm rounded-2xl p-4 flex items-center justify-between shadow-lg hover:scale-105 transition-transform">
+          <button 
+            onClick={() => setShowSettings(true)}
+            className="w-full bg-white/90 backdrop-blur-sm rounded-2xl p-4 flex items-center justify-between shadow-lg hover:scale-105 transition-transform">
             <div className="flex items-center gap-3">
               <Icon name="Settings" size={24} className="text-orange-600" />
               <span className="font-medium text-gray-800">Настройки</span>
@@ -302,7 +394,7 @@ export default function Index() {
           <button className="w-full bg-white/90 backdrop-blur-sm rounded-2xl p-4 flex items-center justify-between shadow-lg hover:scale-105 transition-transform">
             <div className="flex items-center gap-3">
               <Icon name="Globe" size={24} className="text-orange-600" />
-              <span className="font-medium text-gray-800">Язык: Русский</span>
+              <span className="font-medium text-gray-800">Язык: {language === 'ru' ? 'Русский' : 'English'}</span>
             </div>
             <Icon name="ChevronRight" size={20} className="text-gray-400" />
           </button>
@@ -382,7 +474,9 @@ export default function Index() {
                 </span>
               </button>
 
-              <button className="flex flex-col items-center gap-1 transition-transform active:scale-90">
+              <button 
+                onClick={() => setShowComments(true)}
+                className="flex flex-col items-center gap-1 transition-transform active:scale-90">
                 <div className="w-14 h-14 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-lg">
                   <Icon name="MessageCircle" size={28} className="text-orange-600" />
                 </div>
@@ -516,6 +610,142 @@ export default function Index() {
           </button>
         </div>
       </nav>
+
+      <Dialog open={showComments} onOpenChange={setShowComments}>
+        <DialogContent className="max-w-md bg-gradient-to-br from-[#FEF7CD] to-[#FDE1D3] border-orange-200">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-gray-800">
+              Комментарии ({mockComments.length})
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 max-h-[400px] overflow-y-auto">
+            {mockComments.map(comment => (
+              <div key={comment.id} className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-sm">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-yellow-400 flex items-center justify-center flex-shrink-0">
+                    <span className="text-white font-bold text-sm">
+                      {comment.author[1].toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-semibold text-sm text-gray-800">{comment.author}</span>
+                      <span className="text-xs text-gray-500">{comment.timestamp}</span>
+                    </div>
+                    <p className="text-sm text-gray-700 mb-2">{comment.text}</p>
+                    <button className="flex items-center gap-1 text-xs text-gray-500 hover:text-orange-600">
+                      <Icon name="Heart" size={14} />
+                      <span>{comment.likes}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex gap-2 pt-4 border-t border-orange-200">
+            <Textarea
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+              placeholder="Добавьте комментарий..."
+              className="resize-none bg-white/80 backdrop-blur-sm border-orange-200"
+              rows={2}
+            />
+            <Button
+              onClick={handleAddComment}
+              className="bg-gradient-to-r from-orange-400 to-yellow-400 text-white hover:from-orange-500 hover:to-yellow-500"
+            >
+              <Icon name="Send" size={20} />
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showSettings} onOpenChange={setShowSettings}>
+        <DialogContent className="max-w-md bg-gradient-to-br from-[#FEF7CD] to-[#FDE1D3] border-orange-200">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-gray-800">Настройки</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-6">
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Icon name="Moon" size={24} className="text-orange-600" />
+                  <div>
+                    <p className="font-semibold text-gray-800">Тёмная тема</p>
+                    <p className="text-xs text-gray-500">Включить ночной режим</p>
+                  </div>
+                </div>
+                <Switch
+                  checked={darkMode}
+                  onCheckedChange={(checked) => {
+                    setDarkMode(checked);
+                    document.documentElement.classList.toggle('dark', checked);
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Icon name="Globe" size={24} className="text-orange-600" />
+                  <div>
+                    <p className="font-semibold text-gray-800">Язык</p>
+                    <p className="text-xs text-gray-500">Выберите язык интерфейса</p>
+                  </div>
+                </div>
+                <select
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value)}
+                  className="bg-white/90 border border-orange-200 rounded-lg px-3 py-2 text-sm font-medium text-gray-800"
+                >
+                  <option value="ru">Русский</option>
+                  <option value="en">English</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Icon name="Bell" size={24} className="text-orange-600" />
+                  <div>
+                    <p className="font-semibold text-gray-800">Уведомления</p>
+                    <p className="text-xs text-gray-500">Получать push-уведомления</p>
+                  </div>
+                </div>
+                <Switch defaultChecked />
+              </div>
+            </div>
+
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Icon name="Volume2" size={24} className="text-orange-600" />
+                  <div>
+                    <p className="font-semibold text-gray-800">Автозвук</p>
+                    <p className="text-xs text-gray-500">Воспроизводить звук автоматически</p>
+                  </div>
+                </div>
+                <Switch />
+              </div>
+            </div>
+
+            <Button
+              onClick={() => {
+                setShowSettings(false);
+                saveToBackend();
+              }}
+              className="w-full bg-gradient-to-r from-orange-400 to-yellow-400 text-white hover:from-orange-500 hover:to-yellow-500"
+            >
+              Сохранить настройки
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
